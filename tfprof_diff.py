@@ -1,5 +1,10 @@
+#!/usr/bin/env python3
+
 import argparse
 import re
+import better_exchook
+
+better_exchook.install()
 
 class bcolors:
     HEADER = '\033[95m'
@@ -42,6 +47,7 @@ parser.add_argument('--delta', default=0.1, nargs='?', type=float, help='Minimum
 parser.add_argument('--min_size', default='1MB', nargs='?', type=parse_memory, help='Minimum absolute memory value for node to be shown (default: 1MB)')
 parser.add_argument('--swap_files', dest='negative_data_diff', action='store_const', const=True, default=False, help='Calculate memory difference between file 1 and file 0 (default: between file 0 and 1)')
 parser.add_argument('--hide_nodes', default=[], nargs='*', help='Do not show children of nodes with these paths, matched by given list of regexps')
+parser.add_argument('--node_names', default=[], nargs='*', help='Only show nodes that match these paths, matched by given list of regexps')
 parser.add_argument('--extra_files', default=[], nargs='*', help='Extra files to compare when comparing more than two')
 parser.add_argument('--extra_names', default=[], nargs='*', help='Extra file names when comparing more than two files')
 
@@ -49,6 +55,7 @@ args = parser.parse_args()
 
 max_depth, delta, min_size = args.max_depth, args.delta, args.min_size
 hide_nodes_patterns = [re.compile('^%s$' % path) for path in args.hide_nodes]
+show_nodes_patterns = [re.compile('^%s$' % path) for path in args.node_names]
 
 assert len(args.extra_names) == len(args.extra_files), 'Supply exactly one extra scope name (via --scope_names) for every extra scope file'
 scope_names = [args.name0, args.name1] + args.extra_names
@@ -125,6 +132,8 @@ def analyse_node(node, delta=0.1, min_size=1 * 10**6, max_depth=-1):
   if not is_significant(node, delta=delta, min_size=min_size):
     return
   if max_depth > 0 and len(node.full_path) > max_depth:
+    return
+  if len(node.full_path) > 0 and len(show_nodes_patterns) > 0 and not any(pattern.match('/'.join(node.full_path)) for pattern in show_nodes_patterns):
     return
 
   prefix = '  ' * len(node.full_path) + '/'.join(node.full_path)
